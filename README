@@ -1,3 +1,7 @@
+This is a fork of htop that displays CPU ID starting at zero instead of one.
+
+Stock htop README.md follows:
+
 [![Build Status](https://travis-ci.org/hishamhm/htop.svg?branch=master)](https://travis-ci.org/hishamhm/htop)
 [![PayPal donate](https://img.shields.io/badge/paypal-donate-green.svg)](http://hisham.hm/htop/index.php?page=donate)
 
