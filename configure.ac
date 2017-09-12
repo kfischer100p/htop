@@ -1,7 +1,7 @@
 #                                               -*- Autoconf -*-
 # Process this file with autoconf to produce a configure script.
 
-AC_PREREQ(2.65)
+AC_PREREQ(2.63)
 LT_PREREQ([2.4.0])
 AC_INIT([htop],[2.0.2],[hisham@gobolinux.org])
 
