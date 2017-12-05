@@ -173,7 +173,7 @@ static void ProcessList_buildTree(ProcessList* this, pid_t pid, int level, int i
 
    for (int i = Vector_size(this->processes) - 1; i >= 0; i--) {
       Process* process = (Process*) (Vector_get(this->processes, i));
-      if (process->show && (process->tgid == pid || (process->tgid == process->pid && process->ppid == pid))) {
+      if (process->show && Process_isChildOf(process, pid)) {
          process = (Process*) (Vector_take(this->processes, i));
          Vector_add(children, process);
       }
@@ -234,12 +234,13 @@ void ProcessList_sort(ProcessList* this) {
             while (l < r) {
                int c = (l + r) / 2;
                pid_t pid = ((Process*)(Vector_get(this->processes, c)))->pid;
-               if (ppid == pid)
+               if (ppid == pid) {
                   break;
-               else if (ppid < pid)
+               } else if (ppid < pid) {
                   r = c;
-               else
+               } else {
                   l = c + 1;
+               }
             }
             // If parent not found, then construct the tree with this root
             if (l >= r) {
