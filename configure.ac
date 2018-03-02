@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.65)
-AC_INIT([htop],[2.0.2],[hisham@gobolinux.org])
+AC_INIT([htop],[2.1.0],[hisham@gobolinux.org])
 
 SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-$(date +%s)}"
 year=$(date -u -d "@$SOURCE_DATE_EPOCH" "+%Y" 2>/dev/null || date -u -r "$SOURCE_DATE_EPOCH" "+%Y" 2>/dev/null || date -u "+%Y")
@@ -60,6 +60,16 @@ AC_CHECK_HEADERS([stdlib.h string.h strings.h sys/param.h sys/time.h unistd.h],[
   missing_headers="$missing_headers $ac_header"
 ])
 AC_CHECK_HEADERS([execinfo.h],[:],[:])
+
+AC_HEADER_MAJOR
+dnl glibc 2.25 deprecates 'major' and 'minor' in <sys/types.h> and requires to
+dnl include <sys/sysmacros.h>. However the logic in AC_HEADER_MAJOR has not yet
+dnl been updated in Autoconf 2.69, so use a workaround:
+m4_version_prereq([2.70], [],
+[if test "x$ac_cv_header_sys_mkdev_h" = xno; then
+   AC_CHECK_HEADER(sys/sysmacros.h, [AC_DEFINE(MAJOR_IN_SYSMACROS, 1,
+      [Define to 1 if `major', `minor', and `makedev' are declared in <sys/sysmacros.h>.])])
+fi])
 
 # Checks for typedefs, structures, and compiler characteristics.
 # ----------------------------------------------------------------------
@@ -154,20 +164,26 @@ m4_define([HTOP_CHECK_SCRIPT],
 [
    if test ! -z "m4_toupper($HTOP_[$1]_CONFIG_SCRIPT)"; then
       # to be used to set the path to ncurses*-config when cross-compiling
-      htop_config_script=$(m4_toupper($HTOP_[$1]_CONFIG_SCRIPT) --libs 2> /dev/null)
+      htop_config_script_libs=$(m4_toupper($HTOP_[$1]_CONFIG_SCRIPT) --libs 2> /dev/null)
+      htop_config_script_cflags=$(m4_toupper($HTOP_[$1]_CONFIG_SCRIPT) --cflags 2> /dev/null)
    else
-      htop_config_script=$([$4] --libs 2> /dev/null)
+      htop_config_script_libs=$([$4] --libs 2> /dev/null)
+      htop_config_script_cflags=$([$4] --cflags 2> /dev/null)
    fi
    htop_script_success=no
    htop_save_LDFLAGS="$LDFLAGS"
-   if test ! "x$htop_config_script" = x; then
-      LDFLAGS="$htop_config_script $LDFLAGS"
+   htop_save_CFLAGS="$CFLAGS"
+   if test ! "x$htop_config_script_libs" = x; then
+      LDFLAGS="$htop_config_script_libs $LDFLAGS"
+      CFLAGS="$htop_config_script_cflags $CFLAGS"
       AC_CHECK_LIB([$1], [$2], [
          AC_DEFINE([$3], 1, [The library is present.])
-         LIBS="$htop_config_script $LIBS "
+         LIBS="$htop_config_script_libs $LIBS "
          htop_script_success=yes
-      ], [])
-      LDFLAGS="$save_LDFLAGS"
+      ], [
+        CFLAGS="$htop_save_CFLAGS"
+      ])
+      LDFLAGS="$htop_save_LDFLAGS"
    fi
    if test "x$htop_script_success" = xno; then
       [$5]
@@ -259,10 +275,11 @@ fi
 AC_ARG_ENABLE(delayacct, [AS_HELP_STRING([--enable-delayacct], [enable linux delay accounting])],, enable_delayacct="no")
 if test "x$enable_delayacct" = xyes
 then
+   PKG_PROG_PKG_CONFIG()
    PKG_CHECK_MODULES(LIBNL3, libnl-3.0, [], [missing_libraries="$missing_libraries libnl-3"])
    PKG_CHECK_MODULES(LIBNL3GENL, libnl-genl-3.0, [], [missing_libraries="$missing_libraries libnl-genl-3"])
-   CFLAGS+=" $LIBNL3_CFLAGS $LIBNL3GENL_CFLAGS"
-   LIBS+=" $LIBNL3_LIBS $LIBNL3GENL_LIBS"
+   CFLAGS="$CFLAGS $LIBNL3_CFLAGS $LIBNL3GENL_CFLAGS"
+   LIBS="$LIBS $LIBNL3_LIBS $LIBNL3GENL_LIBS"
    AC_DEFINE(HAVE_DELAYACCT, 1, [Define if delay accounting support should be enabled.])
 fi
 
