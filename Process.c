@@ -28,6 +28,12 @@ in the source distribution for its full text.
 #include <time.h>
 #include <assert.h>
 #include <math.h>
+#ifdef MAJOR_IN_MKDEV
+#include <sys/mkdev.h>
+#elif defined(MAJOR_IN_SYSMACROS) || \
+   (defined(HAVE_SYS_SYSMACROS_H) && HAVE_SYS_SYSMACROS_H)
+#include <sys/sysmacros.h>
+#endif
 
 #ifdef __ANDROID__
 #define SYS_ioprio_get __NR_ioprio_get
@@ -172,7 +178,11 @@ typedef struct ProcessClass_ {
 
 #define As_Process(this_)              ((ProcessClass*)((this_)->super.klass))
 
+#define Process_getParentPid(process_)    (process_->tgid == process_->pid ? process_->ppid : process_->tgid)
+
 #define Process_isChildOf(process_, pid_) (process_->tgid == pid_ || (process_->tgid == process_->pid && process_->ppid == pid_))
+
+#define Process_sortState(state) ((state) == 'I' ? 0x100 : (state))
 
 }*/
 
@@ -534,11 +544,11 @@ bool Process_setPriority(Process* this, int priority) {
    return (err == 0);
 }
 
-bool Process_changePriorityBy(Process* this, size_t delta) {
+bool Process_changePriorityBy(Process* this, int delta) {
    return Process_setPriority(this, this->nice + delta);
 }
 
-void Process_sendSignal(Process* this, size_t sgn) {
+void Process_sendSignal(Process* this, int sgn) {
    CRT_dropPrivileges();
    kill(this->pid, (int) sgn);
    CRT_restorePrivileges();
@@ -598,7 +608,7 @@ long Process_compare(const void* v1, const void* v2) {
          return (p1->starttime_ctime - p2->starttime_ctime);
    }
    case STATE:
-      return (p1->state - p2->state);
+      return (Process_sortState(p1->state) - Process_sortState(p2->state));
    case ST_UID:
       return (p1->st_uid - p2->st_uid);
    case TIME:
